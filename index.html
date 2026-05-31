@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<!--
+  OCC Oscilloscope — Optical Camera Communications web demonstrator
+  Copyright (C) 2026  Dr. Vicente Matus, PhD
+  IDeTIC, University of Las Palmas de Gran Canaria
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version. See the LICENSE file (GPLv3).
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b0e14" />
+  <title>OCC Oscilloscope — Optical Camera Communications</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="title-block">
+      <h1>OCC&nbsp;Oscilloscope</h1>
+      <span class="subtitle">Optical Camera Communications demonstrator</span>
+    </div>
+    <button id="helpBtn" class="ghost-btn" title="About / Help" aria-label="Help">ⓘ</button>
+  </header>
+
+  <!-- ================= TOP: video + scope ================= -->
+  <main class="stage">
+    <section class="panel video-panel">
+      <div class="panel-head">
+        <span class="panel-label">Camera</span>
+        <span id="camInfo" class="badge">no signal</span>
+      </div>
+      <div class="video-wrap" id="videoWrap">
+        <video id="video" playsinline autoplay muted></video>
+        <!-- overlay draws the POI / ROI / scan line on top of the video -->
+        <canvas id="overlay" class="overlay"></canvas>
+      </div>
+    </section>
+
+    <section class="panel scope-panel">
+      <div class="panel-head">
+        <span class="panel-label">Oscilloscope</span>
+        <span class="scope-legend">
+          <i class="dot r"></i>R <i class="dot g"></i>G <i class="dot b"></i>B
+        </span>
+        <span id="scopeInfo" class="badge">—</span>
+      </div>
+      <div class="scope-wrap" id="scopeWrap">
+        <canvas id="scope"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= CONTROLS ================= -->
+  <section class="controls">
+
+    <!-- transport + camera -->
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label class="ctrl" for="cameraSelect">
+          <span class="ctrl-name">Camera source</span>
+          <select id="cameraSelect"></select>
+        </label>
+        <div class="btn-row">
+          <button id="startBtn" class="primary-btn">Start</button>
+          <button id="freezeBtn" class="toggle-btn">Freeze</button>
+          <button id="clearBtn" class="ghost-btn">Clear</button>
+          <button id="csvBtn" class="ghost-btn">CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- exposure / iso -->
+    <div class="ctrl-group">
+      <div class="group-title">Sensor exposure</div>
+      <label class="ctrl switch-ctrl">
+        <input type="checkbox" id="manualExposure" />
+        <span class="ctrl-name">Manual exposure</span>
+        <span id="exposureSupport" class="hint">checking…</span>
+      </label>
+      <label class="ctrl" for="exposureSlider">
+        <span class="ctrl-name">Exposure time <span id="exposureVal" class="val">—</span></span>
+        <input type="range" id="exposureSlider" min="0" max="100" value="50" disabled />
+      </label>
+      <label class="ctrl" for="isoSlider">
+        <span class="ctrl-name">ISO / gain <span id="isoVal" class="val">—</span></span>
+        <input type="range" id="isoSlider" min="0" max="100" value="50" disabled />
+      </label>
+    </div>
+
+    <!-- OCC mode -->
+    <div class="ctrl-group">
+      <div class="group-title">OCC acquisition mode</div>
+      <div class="seg" role="tablist">
+        <button class="seg-btn active" data-mode="global" role="tab">Global shutter</button>
+        <button class="seg-btn" data-mode="rolling" role="tab">Rolling shutter</button>
+      </div>
+
+      <!-- GLOBAL SHUTTER controls -->
+      <div id="globalCtrls" class="mode-ctrls">
+        <p class="mode-help">A pixel/region of interest is sampled once per frame; its R,G,B
+          intensity is plotted over time (oscilloscope = intensity vs. frame).</p>
+        <label class="ctrl" for="poiX">
+          <span class="ctrl-name">POI&nbsp;X <span id="poiXVal" class="val">0</span></span>
+          <input type="range" id="poiX" min="0" max="100" value="50" />
+        </label>
+        <label class="ctrl" for="poiY">
+          <span class="ctrl-name">POI&nbsp;Y <span id="poiYVal" class="val">0</span></span>
+          <input type="range" id="poiY" min="0" max="100" value="50" />
+        </label>
+        <label class="ctrl" for="poiR">
+          <span class="ctrl-name">ROI radius <span id="poiRVal" class="val">0</span> px</span>
+          <input type="range" id="poiR" min="0" max="100" value="6" />
+        </label>
+        <label class="ctrl" for="timeWindow">
+          <span class="ctrl-name">Time window <span id="timeWindowVal" class="val">300</span> frames</span>
+          <input type="range" id="timeWindow" min="60" max="1200" step="20" value="300" />
+        </label>
+      </div>
+
+      <!-- ROLLING SHUTTER controls -->
+      <div id="rollingCtrls" class="mode-ctrls hidden">
+        <p class="mode-help">Per frame, the intensity profile along the sensor scanning
+          direction is plotted (oscilloscope = intensity vs. position). Pick the axis that
+          matches the readout direction of the selected camera.</p>
+        <label class="ctrl">
+          <span class="ctrl-name">Scanning direction</span>
+          <div class="seg small">
+            <button class="seg-btn active" data-axis="y">Vertical (Y)</button>
+            <button class="seg-btn" data-axis="x">Horizontal (X)</button>
+          </div>
+        </label>
+        <label class="ctrl switch-ctrl">
+          <input type="checkbox" id="useRoi" />
+          <span class="ctrl-name">Limit to rectangular ROI</span>
+        </label>
+        <div id="roiCtrls" class="roi-grid disabled">
+          <label class="ctrl"><span class="ctrl-name">x1 <span id="x1Val" class="val">0</span></span>
+            <input type="range" id="roiX1" min="0" max="100" value="20" /></label>
+          <label class="ctrl"><span class="ctrl-name">y1 <span id="y1Val" class="val">0</span></span>
+            <input type="range" id="roiY1" min="0" max="100" value="20" /></label>
+          <label class="ctrl"><span class="ctrl-name">x2 <span id="x2Val" class="val">0</span></span>
+            <input type="range" id="roiX2" min="0" max="100" value="80" /></label>
+          <label class="ctrl"><span class="ctrl-name">y2 <span id="y2Val" class="val">0</span></span>
+            <input type="range" id="roiY2" min="0" max="100" value="80" /></label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT / LICENSE ================= -->
+  <footer class="app-footer">
+    <span>© 2026 Dr.&nbsp;Vicente&nbsp;Matus, PhD ·
+      <a href="https://github.com/inventor-loco" target="_blank" rel="noopener">github.com/inventor-loco</a> ·
+      <a href="https://idetic.ulpgc.es/" target="_blank" rel="noopener">IDeTIC, ULPGC</a> ·
+      <a href="LICENSE" target="_blank" rel="noopener">GPLv3</a></span>
+  </footer>
+
+  <!-- About dialog -->
+  <dialog id="helpDialog" class="help-dialog">
+    <h2>OCC Oscilloscope</h2>
+    <p>A browser demonstrator for <strong>Optical Camera Communications</strong>. It uses a
+      device camera as an optical receiver and plots pixel intensities like an oscilloscope.</p>
+    <h3>Global shutter mode</h3>
+    <p>Every pixel is exposed simultaneously, so one frame yields one sample. Choose a Pixel
+      of Interest (POI) with the X/Y sliders — optionally widening it into a circular Region
+      of Interest with the radius slider — and the averaged R,G,B values are streamed over
+      time.</p>
+    <h3>Rolling shutter mode</h3>
+    <p>Rows (or columns) are read out sequentially, so a single frame already contains a
+      time-modulated signal along the scanning direction. Pick the scanning axis and read the
+      R,G,B profile along it; an optional rectangular ROI averages across the perpendicular
+      axis to reduce noise.</p>
+    <h3>Sensor control</h3>
+    <p>Where the browser and camera allow it (<code>MediaStreamTrack</code> capabilities), the
+      exposure time and ISO/gain can be set manually so the optical signal is not washed out
+      by auto-exposure.</p>
+    <hr />
+    <p class="small">Copyright © 2026 Dr.&nbsp;Vicente&nbsp;Matus, PhD —
+      <a href="https://github.com/inventor-loco" target="_blank" rel="noopener">github.com/inventor-loco</a>,
+      IDeTIC, University of Las Palmas de Gran Canaria
+      (<a href="https://idetic.ulpgc.es/" target="_blank" rel="noopener">idetic.ulpgc.es</a>).
+      Licensed under the GNU General Public License v3.</p>
+    <form method="dialog"><button class="primary-btn">Close</button></form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
