@@ -271,7 +271,7 @@ button:hover { border-color: var(--accent-2); }
 .mode-ctrls { margin-top: 10px; }
 .mode-help { font-size: 12px; color: var(--ink-dim); margin: 6px 0 10px; line-height: 1.5; }
 .roi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
-.roi-grid.disabled { opacity: .4; pointer-events: none; }
+.roi-grid.disabled, .ctrl.disabled { opacity: .4; pointer-events: none; }
 
 .hidden { display: none !important; }
 

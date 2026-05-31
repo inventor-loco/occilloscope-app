@@ -78,6 +78,7 @@
   // controls cache (percent 0..100 unless noted)
   const C = {
     poiX: $('poiX'), poiY: $('poiY'), poiR: $('poiR'), timeWindow: $('timeWindow'),
+    linePos: $('linePos'),
     roiX1: $('roiX1'), roiY1: $('roiY1'), roiX2: $('roiX2'), roiY2: $('roiY2'),
   };
 
@@ -273,17 +274,35 @@
 
   function sampleRolling() {
     const { W, H } = S;
-    let x1 = 0, y1 = 0, x2 = W - 1, y2 = H - 1;
-    if (S.useRoi) {
-      x1 = px(+C.roiX1.value, W); x2 = px(+C.roiX2.value, W);
-      y1 = px(+C.roiY1.value, H); y2 = px(+C.roiY2.value, H);
-      if (x2 < x1) [x1, x2] = [x2, x1];
-      if (y2 < y1) [y1, y2] = [y2, y1];
+    const pr = [], pg = [], pb = [];
+
+    if (!S.useRoi) {
+      // ---- single scan line along the scanning direction ----
+      if (S.scanAxis === 'y') {
+        const x = px(+C.linePos.value, W);          // vertical line -> X position
+        const data = pctx.getImageData(x, 0, 1, H).data;
+        for (let y = 0; y < H; y++) {
+          const i = y * 4; pr.push(data[i]); pg.push(data[i + 1]); pb.push(data[i + 2]);
+        }
+      } else {
+        const y = px(+C.linePos.value, H);          // horizontal line -> Y position
+        const data = pctx.getImageData(0, y, W, 1).data;
+        for (let x = 0; x < W; x++) {
+          const i = x * 4; pr.push(data[i]); pg.push(data[i + 1]); pb.push(data[i + 2]);
+        }
+      }
+      S.profile = { r: pr, g: pg, b: pb, axis: S.scanAxis };
+      return;
     }
+
+    // ---- rectangular ROI: average a band across the perpendicular axis ----
+    let x1 = px(+C.roiX1.value, W), x2 = px(+C.roiX2.value, W);
+    let y1 = px(+C.roiY1.value, H), y2 = px(+C.roiY2.value, H);
+    if (x2 < x1) [x1, x2] = [x2, x1];
+    if (y2 < y1) [y1, y2] = [y2, y1];
     const rw = x2 - x1 + 1, rh = y2 - y1 + 1;
     const data = pctx.getImageData(x1, y1, rw, rh).data;
 
-    const pr = [], pg = [], pb = [];
     if (S.scanAxis === 'y') {
       // signal runs along Y: average each row across the X extent
       for (let yy = 0; yy < rh; yy++) {
@@ -343,14 +362,25 @@
       octx.moveTo(cx - 10, cy); octx.lineTo(cx + 10, cy);
       octx.moveTo(cx, cy - 10); octx.lineTo(cx, cy + 10);
       octx.stroke();
-    } else {
-      let x1 = 0, y1 = 0, x2 = g.w, y2 = g.h;
-      if (S.useRoi) {
-        x1 = px(+C.roiX1.value, S.W) * g.sx; x2 = px(+C.roiX2.value, S.W) * g.sx;
-        y1 = px(+C.roiY1.value, S.H) * g.sy; y2 = px(+C.roiY2.value, S.H) * g.sy;
-        if (x2 < x1) [x1, x2] = [x2, x1];
-        if (y2 < y1) [y1, y2] = [y2, y1];
+    } else if (!S.useRoi) {
+      // single scan line spanning the whole frame along the scanning direction
+      octx.strokeStyle = '#38bdf8';
+      if (S.scanAxis === 'y') {
+        const x = px(+C.linePos.value, S.W) * g.sx;
+        octx.beginPath(); octx.moveTo(x, 0); octx.lineTo(x, g.h); octx.stroke();
+        octx.strokeStyle = '#ffd166'; octx.fillStyle = '#ffd166';
+        drawArrow(octx, x, 6, x, g.h - 6);
+      } else {
+        const y = px(+C.linePos.value, S.H) * g.sy;
+        octx.beginPath(); octx.moveTo(0, y); octx.lineTo(g.w, y); octx.stroke();
+        octx.strokeStyle = '#ffd166'; octx.fillStyle = '#ffd166';
+        drawArrow(octx, 6, y, g.w - 6, y);
       }
+    } else {
+      let x1 = px(+C.roiX1.value, S.W) * g.sx, x2 = px(+C.roiX2.value, S.W) * g.sx;
+      let y1 = px(+C.roiY1.value, S.H) * g.sy, y2 = px(+C.roiY2.value, S.H) * g.sy;
+      if (x2 < x1) [x1, x2] = [x2, x1];
+      if (y2 < y1) [y1, y2] = [y2, y1];
       octx.strokeStyle = '#38bdf8';
       octx.fillStyle = 'rgba(56,189,248,.08)';
       octx.fillRect(x1, y1, x2 - x1, y2 - y1);
@@ -629,13 +659,16 @@
         S.scanAxis = b.dataset.axis;
         document.querySelectorAll('.seg-btn[data-axis]').forEach((x) =>
           x.classList.toggle('active', x === b));
+        // the single scan line is perpendicular to the scan direction
+        $('linePosAxis').textContent = S.scanAxis === 'y' ? 'X' : 'Y';
         clearBuffers();
       }));
 
-    // ROI enable
+    // ROI enable: the single-line control is used only when the ROI is off
     $('useRoi').addEventListener('change', (e) => {
       S.useRoi = e.target.checked;
       $('roiCtrls').classList.toggle('disabled', !S.useRoi);
+      $('linePosCtrl').classList.toggle('disabled', S.useRoi);
     });
 
     // numeric value mirrors
@@ -645,6 +678,7 @@
     };
     mirror(C.poiX, 'poiXVal'); mirror(C.poiY, 'poiYVal');
     mirror(C.poiR, 'poiRVal'); mirror(C.timeWindow, 'timeWindowVal');
+    mirror(C.linePos, 'linePosVal');
     mirror(C.roiX1, 'x1Val'); mirror(C.roiY1, 'y1Val');
     mirror(C.roiX2, 'x2Val'); mirror(C.roiY2, 'y2Val');
 

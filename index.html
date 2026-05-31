@@ -142,7 +142,8 @@
       <div id="rollingCtrls" class="mode-ctrls hidden">
         <p class="mode-help">Per frame, the intensity profile along the sensor scanning
           direction is plotted (oscilloscope = intensity vs. position). Pick the axis that
-          matches the readout direction of the selected camera.</p>
+          matches the readout direction of the selected camera. By default a single scan line
+          is read; enabling the ROI averages a rectangular band instead.</p>
         <label class="ctrl">
           <span class="ctrl-name">Scanning direction</span>
           <div class="seg small">
@@ -150,9 +151,14 @@
             <button class="seg-btn" data-axis="x">Horizontal (X)</button>
           </div>
         </label>
+        <label class="ctrl" id="linePosCtrl" for="linePos">
+          <span class="ctrl-name">Scan line position
+            (<span id="linePosAxis">X</span>) <span id="linePosVal" class="val">50</span></span>
+          <input type="range" id="linePos" min="0" max="100" value="50" />
+        </label>
         <label class="ctrl switch-ctrl">
           <input type="checkbox" id="useRoi" />
-          <span class="ctrl-name">Limit to rectangular ROI</span>
+          <span class="ctrl-name">Limit to rectangular ROI (average a band)</span>
         </label>
         <div id="roiCtrls" class="roi-grid disabled">
           <label class="ctrl"><span class="ctrl-name">x1 <span id="x1Val" class="val">0</span></span>
