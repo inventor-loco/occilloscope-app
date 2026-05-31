@@ -70,6 +70,10 @@
           <button id="clearBtn" class="ghost-btn">Clear</button>
           <button id="csvBtn" class="ghost-btn">CSV</button>
         </div>
+        <label class="ctrl" for="streamSize">
+          <span class="ctrl-name">Stream size <span id="streamSizeVal" class="val">60%</span> of view</span>
+          <input type="range" id="streamSize" min="0.4" max="5" step="0.1" value="1.5" />
+        </label>
       </div>
     </div>
 
@@ -117,7 +121,7 @@
         </label>
         <label class="ctrl" for="timeWindow">
           <span class="ctrl-name">Time window <span id="timeWindowVal" class="val">300</span> frames</span>
-          <input type="range" id="timeWindow" min="60" max="1200" step="20" value="300" />
+          <input type="range" id="timeWindow" min="1" max="1200" step="1" value="300" />
         </label>
       </div>
 

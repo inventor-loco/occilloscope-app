@@ -239,6 +239,6 @@ button:hover { border-color: var(--accent-2); }
 /* ---------- responsive: stack video over scope on portrait / narrow ---------- */
 @media (max-width: 760px), (orientation: portrait) {
   .stage { flex-direction: column; }
-  .controls { max-height: 46dvh; }
+  .controls { max-height: 38dvh; }
   .subtitle { display: none; }
 }

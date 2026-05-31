@@ -435,19 +435,25 @@
       : `position → (${(S.profile.axis || S.scanAxis).toUpperCase()} px)`;
     sctx.fillText(xlabel, m.l + 2, H - 5);
 
-    if (n >= 2) {
+    if (n >= 1) {
       const denom = S.mode === 'global'
         ? Math.max(parseInt(C.timeWindow.value, 10) - 1, 1)
-        : (n - 1);
+        : Math.max(n - 1, 1);
       const xAt = (i) => m.l + (i / denom) * pw;
       const trace = (arr, color) => {
-        sctx.strokeStyle = color; sctx.lineWidth = 1.6;
-        sctx.beginPath();
-        for (let i = 0; i < n; i++) {
-          const x = xAt(i), y = valToY(arr[i]);
-          i ? sctx.lineTo(x, y) : sctx.moveTo(x, y);
+        sctx.strokeStyle = color; sctx.fillStyle = color; sctx.lineWidth = 1.6;
+        if (n >= 2) {
+          sctx.beginPath();
+          for (let i = 0; i < n; i++) {
+            const x = xAt(i), y = valToY(arr[i]);
+            i ? sctx.lineTo(x, y) : sctx.moveTo(x, y);
+          }
+          sctx.stroke();
         }
-        sctx.stroke();
+        // marker at the latest sample (the only visible point for tiny windows)
+        sctx.beginPath();
+        sctx.arc(xAt(n - 1), valToY(arr[n - 1]), 2.4, 0, Math.PI * 2);
+        sctx.fill();
       };
       trace(series.b, COL.b);
       trace(series.g, COL.g);
@@ -530,6 +536,18 @@
     clearBtn.addEventListener('click', clearBuffers);
     csvBtn.addEventListener('click', downloadCSV);
     helpBtn.addEventListener('click', () => helpDialog.showModal());
+
+    // user-adjustable stream size: video panel's share of the stage
+    // (vertical height on portrait/mobile, width on desktop side-by-side)
+    const streamSize = $('streamSize');
+    const videoPanel = document.querySelector('.video-panel');
+    const applyStreamSize = () => {
+      const g = parseFloat(streamSize.value);
+      videoPanel.style.flexGrow = g;
+      $('streamSizeVal').textContent = Math.round((g / (g + 1)) * 100) + '%';
+    };
+    streamSize.addEventListener('input', applyStreamSize);
+    applyStreamSize();
 
     // exposure / iso
     manualExposure.addEventListener('change', applyExposureMode);
