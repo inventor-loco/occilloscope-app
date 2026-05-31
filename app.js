@@ -46,6 +46,14 @@
   const isoSlider       = $('isoSlider');
   const isoVal          = $('isoVal');
 
+  const frameRateSel = $('frameRate');
+  const lockWB       = $('lockWB');
+  const wbSupport    = $('wbSupport');
+  const wbTempCtrl   = $('wbTempCtrl');
+  const wbTemp       = $('wbTemp');
+  const wbTempVal    = $('wbTempVal');
+  const iosTip       = $('iosTip');
+
   const globalCtrls  = $('globalCtrls');
   const rollingCtrls = $('rollingCtrls');
 
@@ -70,6 +78,7 @@
     buf: { r: [], g: [], b: [] },
     // rolling-shutter latest spatial profile
     profile: { r: [], g: [], b: [], axis: 'y' },
+    reqFps: 60,            // requested frame rate (caps exposure to <= 1/reqFps)
     // fps
     lastT: performance.now(),
     fps: 0,
@@ -114,7 +123,9 @@
     const video_constraints = {
       width:  { ideal: 1280 },
       height: { ideal: 720 },
-      frameRate: { ideal: 60 },     // high FPS helps OCC sampling
+      // a higher frame rate bounds the exposure to <= 1/fps (the main lever on iOS)
+      // and raises the global-shutter sampling rate
+      frameRate: { ideal: S.reqFps },
     };
     if (deviceId) video_constraints.deviceId = { exact: deviceId };
     else video_constraints.facingMode = { ideal: 'environment' };
@@ -132,7 +143,8 @@
 
       setupTrackCapabilities();
       const st = S.track.getSettings();
-      camInfo.textContent = `${st.width || '?'}×${st.height || '?'}`;
+      const rate = st.frameRate ? ` @ ${Math.round(st.frameRate)}fps` : '';
+      camInfo.textContent = `${st.width || '?'}×${st.height || '?'}${rate}`;
     } catch (err) {
       console.warn('getUserMedia failed', err);
       camInfo.textContent = silent ? 'press Start' : 'camera blocked';
@@ -184,6 +196,34 @@
       isoVal.textContent = 'n/a';
     }
     syncExposureEnabled();
+
+    // iOS Safari exposes none of the above — show the frame-rate workaround tip
+    iosTip.hidden = (hasExp || hasManual || hasIso);
+
+    // ---- white-balance lock (supported on iOS; helps steady the R,G,B channels) ----
+    const hasWBManual = Array.isArray(caps.whiteBalanceMode) && caps.whiteBalanceMode.includes('manual');
+    const hasTemp = !!caps.colorTemperature;
+    lockWB.disabled = !hasWBManual;
+    lockWB.checked = settings.whiteBalanceMode === 'manual';
+    wbSupport.textContent = hasWBManual ? '' : 'not supported here';
+    if (hasTemp) {
+      wbTempCtrl.hidden = false;
+      wbTemp.min = caps.colorTemperature.min;
+      wbTemp.max = caps.colorTemperature.max;
+      wbTemp.step = caps.colorTemperature.step || 50;
+      wbTemp.value = settings.colorTemperature ?? caps.colorTemperature.min;
+      wbTempVal.textContent = Math.round(wbTemp.value);
+    } else {
+      wbTempCtrl.hidden = true;
+    }
+    syncWBEnabled();
+    // the frame-rate menu stays fully selectable: frameRate:{ideal} never fails, it just
+    // picks the closest available, and the achieved rate is reported live in the badge.
+  }
+
+  function syncWBEnabled() {
+    const on = lockWB.checked && !lockWB.disabled;
+    wbTemp.disabled = !on || wbTempCtrl.hidden;
   }
 
   // exposureTime is expressed in 100µs units by the spec
@@ -221,6 +261,30 @@
     isoVal.textContent = Math.round(v);
     try { await S.track.applyConstraints({ advanced: [{ exposureMode: 'manual', iso: v }] }); }
     catch (err) { console.warn('iso', err); }
+  }
+
+  // changing the frame rate is most reliable via a fresh stream (esp. on iOS)
+  function applyFrameRate() {
+    S.reqFps = Number(frameRateSel.value) || 60;
+    if (S.stream) startCamera(cameraSelect.value || S.track.getSettings().deviceId || undefined);
+  }
+
+  async function applyWhiteBalance() {
+    if (!S.track) return;
+    syncWBEnabled();
+    const mode = (lockWB.checked && !lockWB.disabled) ? 'manual' : 'continuous';
+    try {
+      await S.track.applyConstraints({ advanced: [{ whiteBalanceMode: mode }] });
+      if (mode === 'manual') await applyColorTemp();
+    } catch (err) { console.warn('whiteBalanceMode', err); }
+  }
+
+  async function applyColorTemp() {
+    if (!S.track || !lockWB.checked || !(S.caps && S.caps.colorTemperature)) return;
+    const v = Number(wbTemp.value);
+    wbTempVal.textContent = Math.round(v);
+    try { await S.track.applyConstraints({ advanced: [{ whiteBalanceMode: 'manual', colorTemperature: v }] }); }
+    catch (err) { console.warn('colorTemperature', err); }
   }
 
   // ================================================================ PROCESSING
@@ -644,10 +708,13 @@
       collapseBtn.setAttribute('aria-expanded', String(!collapsed));
     });
 
-    // exposure / iso
+    // frame rate / exposure / iso / white balance
+    frameRateSel.addEventListener('change', applyFrameRate);
     manualExposure.addEventListener('change', applyExposureMode);
     exposureSlider.addEventListener('input', applyExposureTime);
     isoSlider.addEventListener('input', applyIso);
+    lockWB.addEventListener('change', applyWhiteBalance);
+    wbTemp.addEventListener('input', applyColorTemp);
 
     // mode segmented control
     document.querySelectorAll('.seg-btn[data-mode]').forEach((b) =>

@@ -12,7 +12,8 @@ intensities like an oscilloscope, in real time.
   (webcam, front, and back cameras).
 - **Sensor control** — manual **exposure time** and **ISO/gain** via `MediaStreamTrack`
   capabilities, so the optical signal is not washed out by auto-exposure. The effect is
-  visible live in the video stream (where the camera/browser expose these controls).
+  visible live in the video stream (where the camera/browser expose these controls). A
+  **frame-rate** selector and a **white-balance lock** are also available.
 - **Top section** — the video stream and the oscilloscope plot side by side (stacked on
   portrait phones), both kept on screen.
 - **Two OCC acquisition modes:**
@@ -46,8 +47,26 @@ For testing on a **phone**, serve over HTTPS (self-signed certificate, a tunnel 
 `ngrok`, or **GitHub Pages**, which provides HTTPS for free).
 
 > Manual exposure / ISO support depends on the camera and browser. Chrome on Android exposes
-> the most controls; many laptop webcams and iOS Safari expose few or none — the app detects
-> this and labels the controls accordingly.
+> the most controls; many laptop webcams expose few or none — the app detects this and labels
+> the controls accordingly.
+
+### iOS / Safari notes
+
+iOS Safari (WebKit) **does not implement** manual `exposureTime`, `iso`, or `exposureMode` —
+they cannot be enabled from a web page, and `ImageCapture` is unavailable too. The app detects
+this and shows the controls as unsupported.
+
+The usable lever on iOS is the **frame rate**: capture exposure can never exceed one frame
+interval, so a higher frame rate bounds it to **≤ 1/fps**. In practice:
+
+- Use **rolling-shutter** mode (it works with auto-exposure when aimed at a bright modulated
+  source).
+- Raise the **frame rate** (60/120 fps) to shorten the maximum exposure and sharpen the bands.
+- Optionally **lock white balance** to steady the R, G, B channels.
+
+For true numeric shutter/ISO on iOS you would need a native wrapper (e.g. **Capacitor** with a
+small plugin calling `AVCaptureDevice.setExposureModeCustom(duration:iso:)`), which is outside
+the scope of this install-free web demonstrator.
 
 ## License
 

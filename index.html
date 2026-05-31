@@ -90,9 +90,22 @@
       </div>
     </div>
 
-    <!-- exposure / iso -->
+    <!-- sensor & camera -->
     <div class="ctrl-group">
-      <div class="group-title">Sensor exposure</div>
+      <div class="group-title">Sensor &amp; camera</div>
+
+      <!-- frame rate: works on every platform; on iOS it is the main exposure lever -->
+      <label class="ctrl" for="frameRate">
+        <span class="ctrl-name">Frame rate (caps exposure to ≤ 1/fps)</span>
+        <select id="frameRate">
+          <option value="15">15 fps</option>
+          <option value="24">24 fps</option>
+          <option value="30">30 fps</option>
+          <option value="60" selected>60 fps</option>
+          <option value="120">120 fps</option>
+        </select>
+      </label>
+
       <label class="ctrl switch-ctrl">
         <input type="checkbox" id="manualExposure" />
         <span class="ctrl-name">Manual exposure</span>
@@ -106,6 +119,21 @@
         <span class="ctrl-name">ISO / gain <span id="isoVal" class="val">—</span></span>
         <input type="range" id="isoSlider" min="0" max="100" value="50" disabled />
       </label>
+
+      <!-- white-balance lock: supported on iOS; steadies the R,G,B channels -->
+      <label class="ctrl switch-ctrl">
+        <input type="checkbox" id="lockWB" disabled />
+        <span class="ctrl-name">Lock white balance</span>
+        <span id="wbSupport" class="hint"></span>
+      </label>
+      <label class="ctrl" id="wbTempCtrl" for="wbTemp" hidden>
+        <span class="ctrl-name">Colour temperature <span id="wbTempVal" class="val">—</span> K</span>
+        <input type="range" id="wbTemp" min="2800" max="6500" value="5000" disabled />
+      </label>
+
+      <p class="hint ios-tip" id="iosTip" hidden>iOS Safari can't set shutter/ISO (WebKit limit).
+        Use <strong>Rolling shutter</strong>, raise the frame rate, and aim at a bright modulated
+        source — the frame rate then bounds the exposure.</p>
     </div>
 
     <!-- OCC mode -->
@@ -200,7 +228,14 @@
     <h3>Sensor control</h3>
     <p>Where the browser and camera allow it (<code>MediaStreamTrack</code> capabilities), the
       exposure time and ISO/gain can be set manually so the optical signal is not washed out
-      by auto-exposure.</p>
+      by auto-exposure. This works on Android Chrome and most desktops.</p>
+    <p><strong>On iOS Safari</strong>, WebKit does not implement manual <code>exposureTime</code>,
+      <code>iso</code>, or <code>exposureMode</code> — they cannot be enabled from a web page.
+      The usable lever there is the <strong>frame rate</strong>: capture exposure can never exceed
+      one frame interval, so a higher frame rate bounds it to ≤ 1/fps. Combined with rolling-shutter
+      mode and a bright modulated source, that is enough to recover the signal. White balance can be
+      locked on iOS to steady the colour channels. True numeric shutter/ISO on iOS would require a
+      native wrapper (e.g. Capacitor + <code>AVCaptureDevice.setExposureModeCustom</code>).</p>
     <hr />
     <p class="small">Copyright © 2026 Dr.&nbsp;Vicente&nbsp;Matus, PhD —
       <a href="https://github.com/inventor-loco" target="_blank" rel="noopener">github.com/inventor-loco</a>,
