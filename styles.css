@@ -70,13 +70,14 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  gap: var(--gap);
+  flex-direction: column;     /* video stacked above the scope */
+  gap: 0;
   padding: var(--gap);
 }
 .panel {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 0;
+  min-height: 90px;           /* keep both panels visible while resizing */
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -84,6 +85,25 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
 }
+
+/* draggable divider that sets the video panel height */
+.v-resizer {
+  flex: 0 0 auto;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+  touch-action: none;
+}
+.v-resizer span {
+  width: 46px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  transition: background .12s;
+}
+.v-resizer:hover span, .v-resizer.dragging span { background: var(--accent); }
 .panel-head {
   flex: 0 0 auto;
   display: flex;
@@ -137,16 +157,53 @@ body {
 .dot.r { background: var(--r); } .dot.g { background: var(--g); } .dot.b { background: var(--b); }
 
 /* ---------- controls ---------- */
+/* divider / collapse bar between the stage and the parameters */
+.controls-bar {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 24px;
+  padding: 0 10px;
+  background: var(--panel-2);
+  border-top: 1px solid var(--line);
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+}
+.controls-bar.is-collapsed { cursor: default; }
+.bar-grip { position: absolute; left: 50%; transform: translateX(-50%); padding: 6px; }
+.bar-grip span { display: block; width: 46px; height: 4px; border-radius: 99px; background: var(--line); transition: background .12s; }
+.controls-bar:hover .bar-grip span, .controls-bar.dragging .bar-grip span { background: var(--accent); }
+.controls-bar.is-collapsed .bar-grip { display: none; }
+.collapse-btn {
+  position: relative; z-index: 1;
+  background: transparent; border: 1px solid var(--line);
+  padding: 2px 10px; font-size: 12px; color: var(--ink-dim);
+  border-radius: 99px; cursor: pointer;
+}
+.collapse-btn:hover { color: var(--ink); border-color: var(--accent-2); }
+.collapse-btn .chev { display: inline-block; transition: transform .15s; }
+.controls-bar.is-collapsed .collapse-btn .chev { transform: rotate(180deg); }
+
 .controls {
   flex: 0 0 auto;
+  height: auto;
   max-height: 42dvh;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--gap);
   padding: var(--gap);
-  border-top: 1px solid var(--line);
   background: var(--panel-2);
+}
+.controls.collapsed {
+  height: 0 !important;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
 }
 .ctrl-group {
   background: var(--panel);
@@ -238,7 +295,6 @@ button:hover { border-color: var(--accent-2); }
 
 /* ---------- responsive: stack video over scope on portrait / narrow ---------- */
 @media (max-width: 760px), (orientation: portrait) {
-  .stage { flex-direction: column; }
   .controls { max-height: 38dvh; }
   .subtitle { display: none; }
 }

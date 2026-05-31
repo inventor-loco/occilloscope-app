@@ -537,17 +537,82 @@
     csvBtn.addEventListener('click', downloadCSV);
     helpBtn.addEventListener('click', () => helpDialog.showModal());
 
-    // user-adjustable stream size: video panel's share of the stage
-    // (vertical height on portrait/mobile, width on desktop side-by-side)
+    // user-adjustable video panel height (the video sits above the scope in the stage).
+    // Controlled either by the slider or by dragging the divider bar.
     const streamSize = $('streamSize');
     const videoPanel = document.querySelector('.video-panel');
+    const stage = document.querySelector('.stage');
+    const vResizer = $('vResizer');
+    const SS_MIN = parseFloat(streamSize.min), SS_MAX = parseFloat(streamSize.max);
+
     const applyStreamSize = () => {
-      const g = parseFloat(streamSize.value);
-      videoPanel.style.flexGrow = g;
+      const g = clamp(parseFloat(streamSize.value), SS_MIN, SS_MAX);
+      videoPanel.style.flexGrow = g;           // scope panel keeps flex-grow 1
       $('streamSizeVal').textContent = Math.round((g / (g + 1)) * 100) + '%';
     };
     streamSize.addEventListener('input', applyStreamSize);
     applyStreamSize();
+
+    // drag the divider: map the pointer position to the video/scope height split
+    let dragging = false;
+    const onDrag = (e) => {
+      if (!dragging) return;
+      const rect = stage.getBoundingClientRect();
+      const minPx = 90;                                  // matches .panel min-height
+      const vh = clamp(e.clientY - rect.top, minPx, rect.height - minPx);
+      const sh = Math.max(rect.height - vh, 1);
+      streamSize.value = clamp(vh / sh, SS_MIN, SS_MAX);
+      applyStreamSize();
+      e.preventDefault();
+    };
+    vResizer.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      vResizer.classList.add('dragging');
+      vResizer.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    vResizer.addEventListener('pointermove', onDrag);
+    const endDrag = () => { dragging = false; vResizer.classList.remove('dragging'); };
+    vResizer.addEventListener('pointerup', endDrag);
+    vResizer.addEventListener('pointercancel', endDrag);
+
+    // ---- parameters panel: drag the bar to resize, button to collapse ----
+    const controls = $('controls');
+    const controlsBar = $('controlsBar');
+    const collapseBtn = $('collapseBtn');
+    const appHeader = document.querySelector('.app-header');
+    const MIN_CTRL = 36, MIN_STAGE = 150;       // px guards so nothing vanishes
+
+    let cDragging = false;
+    const onCtrlDrag = (e) => {
+      if (!cDragging) return;
+      const bottom = controls.getBoundingClientRect().bottom;   // pinned above the footer
+      const barH = controlsBar.offsetHeight;
+      const maxCtrl = bottom - appHeader.getBoundingClientRect().bottom - MIN_STAGE - barH;
+      const h = clamp(bottom - e.clientY - barH, MIN_CTRL, Math.max(maxCtrl, MIN_CTRL));
+      controls.style.maxHeight = 'none';        // take over from the CSS cap
+      controls.style.height = h + 'px';
+      e.preventDefault();
+    };
+    controlsBar.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.collapse-btn')) return;            // let the button handle clicks
+      if (controls.classList.contains('collapsed')) return;
+      cDragging = true;
+      controlsBar.classList.add('dragging');
+      controlsBar.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    controlsBar.addEventListener('pointermove', onCtrlDrag);
+    const endCtrlDrag = () => { cDragging = false; controlsBar.classList.remove('dragging'); };
+    controlsBar.addEventListener('pointerup', endCtrlDrag);
+    controlsBar.addEventListener('pointercancel', endCtrlDrag);
+
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = controls.classList.toggle('collapsed');
+      controlsBar.classList.toggle('is-collapsed', collapsed);
+      collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+    });
 
     // exposure / iso
     manualExposure.addEventListener('change', applyExposureMode);
